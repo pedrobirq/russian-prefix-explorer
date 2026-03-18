@@ -1,9 +1,18 @@
+export interface ExerciseData {
+  id: number;
+  sentence: string;
+  correctAnswer: string;
+  options: string[];
+}
+
 export interface PrefixData {
+  id?: number;
   prefix: string;
   meaning: string;
   resultWord: string;
   resultMeaning: string;
   example: string;
+  exercises?: ExerciseData[];
 }
 
 export interface LevelData {
@@ -11,6 +20,7 @@ export interface LevelData {
   baseVerb: string;
   baseMeaning: string;
   prefixes: PrefixData[];
+  levelExercises?: ExerciseData[];
 }
 
 export const levels: LevelData[] = [

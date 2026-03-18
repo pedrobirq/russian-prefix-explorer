@@ -23,23 +23,47 @@ async function startServer() {
 
       const levelsRes = await db.query('SELECT * FROM levels ORDER BY id ASC');
       const prefixesRes = await db.query('SELECT * FROM prefixes');
+      const exercisesRes = await db.query('SELECT * FROM exercises');
 
       const levels = levelsRes.rows.map(level => {
         const levelPrefixes = prefixesRes.rows
           .filter(p => p.level_id === level.id)
-          .map(p => ({
-            prefix: p.prefix,
-            meaning: p.meaning,
-            resultWord: p.result_word,
-            resultMeaning: p.result_meaning,
-            example: p.example
-          }));
+          .map(p => {
+            const prefixExercises = exercisesRes.rows
+              .filter(e => e.prefix_id === p.id)
+              .map(e => ({
+                id: e.id,
+                sentence: e.sentence,
+                correctAnswer: e.correct_answer,
+                options: e.options
+              }));
+
+            return {
+              id: p.id,
+              prefix: p.prefix,
+              meaning: p.meaning,
+              resultWord: p.result_word,
+              resultMeaning: p.result_meaning,
+              example: p.example,
+              exercises: prefixExercises
+            };
+          });
         
+        const levelExercises = exercisesRes.rows
+          .filter(e => e.level_id === level.id && e.prefix_id === null)
+          .map(e => ({
+            id: e.id,
+            sentence: e.sentence,
+            correctAnswer: e.correct_answer,
+            options: e.options
+          }));
+
         return {
           id: level.id,
           baseVerb: level.base_verb,
           baseMeaning: level.base_meaning,
-          prefixes: levelPrefixes
+          prefixes: levelPrefixes,
+          levelExercises: levelExercises
         };
       });
 

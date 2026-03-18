@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, ChevronRight, ArrowLeft, BookOpen, Sparkles } from 'lucide-react';
+import { CheckCircle2, ChevronRight, ArrowLeft, BookOpen, Sparkles, Dumbbell, Trophy } from 'lucide-react';
 import { LevelData, PrefixData } from '../data/levels';
+import ExerciseBlock from './ExerciseBlock';
 
 interface GameProps {
   level: LevelData;
@@ -14,6 +15,12 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
   const [foundPrefixes, setFoundPrefixes] = useState<string[]>([]);
   const [activePrefix, setActivePrefix] = useState<PrefixData | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Exercise state
+  const [completedPrefixExercises, setCompletedPrefixExercises] = useState<string[]>([]);
+  const [activeExercisePrefix, setActiveExercisePrefix] = useState<string | null>(null);
+  const [showLevelExercises, setShowLevelExercises] = useState(false);
+  const [levelExercisesCompleted, setLevelExercisesCompleted] = useState(false);
 
   const handlePrefixClick = (prefixData: PrefixData) => {
     if (foundPrefixes.includes(prefixData.prefix)) {
@@ -30,7 +37,23 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
     }, 1500);
   };
 
-  const isComplete = foundPrefixes.length === level.prefixes.length;
+  const handleCompletePrefixExercises = (prefix: string) => {
+    setCompletedPrefixExercises(prev => [...prev, prefix]);
+    setActiveExercisePrefix(null);
+  };
+
+  const handleCompleteLevelExercises = () => {
+    setLevelExercisesCompleted(true);
+    setShowLevelExercises(false);
+  };
+
+  const allPrefixesFound = foundPrefixes.length === level.prefixes.length;
+  const allPrefixExercisesDone = completedPrefixExercises.length === level.prefixes.length;
+  const canStartLevelExercises = allPrefixesFound && allPrefixExercisesDone;
+  const isComplete = levelExercisesCompleted;
+
+  // Find the active exercise data
+  const activePrefixData = level.prefixes.find(p => p.prefix === activeExercisePrefix);
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-slate-900 font-sans flex flex-col">
@@ -144,8 +167,30 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
           </div>
         </div>
 
+        {/* Active Exercise Block */}
+        {activeExercisePrefix && activePrefixData && activePrefixData.exercises && (
+          <div ref={(el) => el?.scrollIntoView({ behavior: 'smooth' })}>
+            <ExerciseBlock 
+              exercises={activePrefixData.exercises} 
+              onComplete={() => handleCompletePrefixExercises(activePrefixData.prefix)}
+              title={`Practice: ${activePrefixData.prefix}${level.baseVerb}`}
+            />
+          </div>
+        )}
+
+        {/* Level Exercises Block */}
+        {showLevelExercises && level.levelExercises && (
+          <div ref={(el) => el?.scrollIntoView({ behavior: 'smooth' })}>
+            <ExerciseBlock 
+              exercises={level.levelExercises} 
+              onComplete={handleCompleteLevelExercises}
+              title={`Final Test: Level ${level.id}`}
+            />
+          </div>
+        )}
+
         {/* Found Words List */}
-        {foundPrefixes.length > 0 && (
+        {foundPrefixes.length > 0 && !showLevelExercises && !isComplete && (
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
               <BookOpen className="w-6 h-6 mr-2 text-indigo-500" />
@@ -154,24 +199,65 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {level.prefixes
                 .filter(p => foundPrefixes.includes(p.prefix))
-                .map(p => (
-                  <div key={p.prefix} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col">
-                    <div className="flex items-baseline justify-between mb-2">
-                      <div className="text-lg font-bold text-slate-800">
-                        <span className="text-indigo-600">{p.prefix}</span>{level.baseVerb}
+                .map(p => {
+                  const exercisesDone = completedPrefixExercises.includes(p.prefix);
+                  const hasExercises = p.exercises && p.exercises.length > 0;
+                  
+                  return (
+                    <div key={p.prefix} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col">
+                      <div className="flex items-baseline justify-between mb-2">
+                        <div className="text-lg font-bold text-slate-800">
+                          <span className="text-indigo-600">{p.prefix}</span>{level.baseVerb}
+                        </div>
+                        <div className="text-sm font-medium text-slate-500 bg-white px-2 py-1 rounded-md shadow-sm">
+                          {p.meaning}
+                        </div>
                       </div>
-                      <div className="text-sm font-medium text-slate-500 bg-white px-2 py-1 rounded-md shadow-sm">
-                        {p.meaning}
-                      </div>
+                      <div className="text-slate-600 mb-4">{p.resultMeaning}</div>
+                      
+                      {hasExercises && (
+                        <div className="mt-auto pt-4 border-t border-slate-200 flex items-center justify-between">
+                          <span className="text-sm font-medium text-slate-500 flex items-center">
+                            {exercisesDone ? (
+                              <><CheckCircle2 className="w-4 h-4 text-emerald-500 mr-1" /> Mastered</>
+                            ) : (
+                              <><Dumbbell className="w-4 h-4 text-amber-500 mr-1" /> Needs Practice</>
+                            )}
+                          </span>
+                          {!exercisesDone && (
+                            <button
+                              onClick={() => setActiveExercisePrefix(p.prefix)}
+                              className="text-sm bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-200 transition-colors"
+                            >
+                              Practice
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="text-slate-600 mb-2">{p.resultMeaning}</div>
-                    <div className="text-sm text-slate-500 italic mt-auto pt-2 border-t border-slate-200">
-                      {p.example}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
+        )}
+
+        {/* Final Test Banner */}
+        {canStartLevelExercises && !showLevelExercises && !isComplete && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-8 text-white text-center shadow-lg"
+          >
+            <Trophy className="w-12 h-12 mx-auto mb-4 text-indigo-200" />
+            <h3 className="text-2xl font-bold mb-2">Ready for the Final Test?</h3>
+            <p className="text-indigo-100 mb-6">You've mastered all prefixes for this level. Complete the final test to unlock the next level.</p>
+            <button
+              onClick={() => setShowLevelExercises(true)}
+              className="bg-white text-indigo-600 px-8 py-3 rounded-xl font-bold text-lg hover:bg-indigo-50 transition-colors shadow-sm"
+            >
+              Start Final Test
+            </button>
+          </motion.div>
         )}
 
         {/* Level Complete */}
@@ -179,16 +265,16 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-indigo-600 rounded-3xl p-8 text-white text-center shadow-xl"
+            className="bg-emerald-500 rounded-3xl p-8 text-white text-center shadow-xl"
           >
-            <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-indigo-200" />
+            <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-emerald-200" />
             <h2 className="text-3xl font-bold mb-2">Level Complete!</h2>
-            <p className="text-indigo-100 mb-8 text-lg">You've mastered all prefixes for "{level.baseVerb}".</p>
+            <p className="text-emerald-100 mb-8 text-lg">You've mastered all prefixes and passed the final test for "{level.baseVerb}".</p>
             
             {!isLastLevel ? (
               <button 
                 onClick={onNextLevel}
-                className="bg-white text-indigo-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-indigo-50 transition-colors inline-flex items-center"
+                className="bg-white text-emerald-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-50 transition-colors inline-flex items-center"
               >
                 Next Level
                 <ChevronRight className="w-6 h-6 ml-2" />
@@ -196,7 +282,7 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
             ) : (
               <button 
                 onClick={onBack}
-                className="bg-white text-indigo-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-indigo-50 transition-colors inline-flex items-center"
+                className="bg-white text-emerald-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-50 transition-colors inline-flex items-center"
               >
                 Back to Menu
               </button>

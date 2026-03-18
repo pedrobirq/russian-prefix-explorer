@@ -29,6 +29,17 @@ export async function seedDatabase() {
     );
   `);
 
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS exercises (
+      id SERIAL PRIMARY KEY,
+      level_id INTEGER REFERENCES levels(id) ON DELETE CASCADE,
+      prefix_id INTEGER REFERENCES prefixes(id) ON DELETE CASCADE,
+      sentence TEXT NOT NULL,
+      correct_answer VARCHAR(255) NOT NULL,
+      options JSONB NOT NULL
+    );
+  `);
+
   // Check if data exists
   const res = await db.query('SELECT COUNT(*) FROM levels');
   if (parseInt(res.rows[0].count) === 0) {
@@ -51,5 +62,54 @@ export async function seedDatabase() {
     }
     console.log('Database seeded successfully.');
   }
+
+  // Seed exercises if empty
+  const exRes = await db.query('SELECT COUNT(*) FROM exercises');
+  if (parseInt(exRes.rows[0].count) === 0) {
+    console.log('Seeding auto-generated test exercises...');
+    const allPrefixes = await db.query('SELECT * FROM prefixes');
+    const allLevels = await db.query('SELECT * FROM levels');
+
+    for (const prefix of allPrefixes.rows) {
+      // Generate 5 Type 1 exercises per prefix
+      for (let i = 1; i <= 5; i++) {
+        const options = JSON.stringify([
+          prefix.result_word,
+          prefix.result_word + 'л', // dummy wrong option
+          'не' + prefix.result_word // dummy wrong option
+        ].sort(() => Math.random() - 0.5));
+
+        await db.query(
+          `INSERT INTO exercises (level_id, prefix_id, sentence, correct_answer, options)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [prefix.level_id, prefix.id, `Тестовое предложение ${i} для слова: ___`, prefix.result_word, options]
+        );
+      }
+    }
+
+    for (const level of allLevels.rows) {
+      // Generate 20 Type 2 exercises per level
+      const levelPrefixes = allPrefixes.rows.filter(p => p.level_id === level.id);
+      if (levelPrefixes.length === 0) continue;
+
+      for (let i = 1; i <= 20; i++) {
+        const correctPrefix = levelPrefixes[Math.floor(Math.random() * levelPrefixes.length)];
+        // Get 3 random options including the correct one
+        const optionsArray = levelPrefixes.map(p => p.result_word).sort(() => Math.random() - 0.5).slice(0, 3);
+        if (!optionsArray.includes(correctPrefix.result_word)) {
+          optionsArray[0] = correctPrefix.result_word;
+        }
+        const options = JSON.stringify(optionsArray.sort(() => Math.random() - 0.5));
+
+        await db.query(
+          `INSERT INTO exercises (level_id, prefix_id, sentence, correct_answer, options)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [level.id, null, `Финальный тест ${i} уровня ${level.id}. Вставьте слово: ___`, correctPrefix.result_word, options]
+        );
+      }
+    }
+    console.log('Exercises seeded successfully.');
+  }
+
   isSeeded = true;
 }
