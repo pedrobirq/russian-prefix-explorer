@@ -29,6 +29,19 @@ export async function seedDatabase() {
     );
   `);
 
+  // Add base_form column if it doesn't exist (for existing DBs)
+  await db.query(`
+    ALTER TABLE prefixes 
+    ADD COLUMN IF NOT EXISTS base_form VARCHAR(255);
+  `);
+
+  // Backfill base_form for existing rows
+  await db.query(`
+    UPDATE prefixes 
+    SET base_form = (SELECT base_verb FROM levels WHERE levels.id = prefixes.level_id) 
+    WHERE base_form IS NULL OR base_form = '';
+  `);
+
   await db.query(`
     CREATE TABLE IF NOT EXISTS exercises (
       id SERIAL PRIMARY KEY,
@@ -54,9 +67,9 @@ export async function seedDatabase() {
       for (const prefix of level.prefixes) {
         await db.query(
           `INSERT INTO prefixes 
-          (level_id, prefix, meaning, result_word, result_meaning, example) 
-          VALUES ($1, $2, $3, $4, $5, $6)`,
-          [levelId, prefix.prefix, prefix.meaning, prefix.resultWord, prefix.resultMeaning, prefix.example]
+          (level_id, prefix, base_form, meaning, result_word, result_meaning, example) 
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [levelId, prefix.prefix, prefix.baseForm, prefix.meaning, prefix.resultWord, prefix.resultMeaning, prefix.example]
         );
       }
     }

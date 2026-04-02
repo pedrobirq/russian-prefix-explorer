@@ -41,6 +41,7 @@ async function startServer() {
             return {
               id: p.id,
               prefix: p.prefix,
+              baseForm: p.base_form || level.base_verb,
               meaning: p.meaning,
               resultWord: p.result_word,
               resultMeaning: p.result_meaning,

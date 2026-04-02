@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, ChevronRight, ArrowLeft, BookOpen, Sparkles, Dumbbell, Trophy } from 'lucide-react';
+import { CheckCircle2, ChevronRight, ArrowLeft, BookOpen, Sparkles, Dumbbell, Trophy, Plus, XCircle } from 'lucide-react';
 import { LevelData, PrefixData } from '../data/levels';
 import ExerciseBlock from './ExerciseBlock';
 
@@ -12,34 +12,72 @@ interface GameProps {
 }
 
 export default function Game({ level, onBack, onNextLevel, isLastLevel }: GameProps) {
-  const [foundPrefixes, setFoundPrefixes] = useState<string[]>([]);
-  const [activePrefix, setActivePrefix] = useState<PrefixData | null>(null);
+  const [foundWords, setFoundWords] = useState<string[]>([]);
+  const [activeWord, setActiveWord] = useState<PrefixData | null>(null);
+  const [selectedPrefix, setSelectedPrefix] = useState<string | null>(null);
+  const [selectedBaseForm, setSelectedBaseForm] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showError, setShowError] = useState(false);
   
   // Exercise state
-  const [completedPrefixExercises, setCompletedPrefixExercises] = useState<string[]>([]);
-  const [activeExercisePrefix, setActiveExercisePrefix] = useState<string | null>(null);
+  const [completedWordExercises, setCompletedWordExercises] = useState<string[]>([]);
+  const [activeExerciseWord, setActiveExerciseWord] = useState<string | null>(null);
   const [showLevelExercises, setShowLevelExercises] = useState(false);
   const [levelExercisesCompleted, setLevelExercisesCompleted] = useState(false);
 
-  const handlePrefixClick = (prefixData: PrefixData) => {
-    if (foundPrefixes.includes(prefixData.prefix)) {
-      setActivePrefix(prefixData);
-      return;
-    }
+  const uniquePrefixes = Array.from(new Set(level.prefixes.map(p => p.prefix)));
+  const uniqueBaseForms = Array.from(new Set(level.prefixes.map(p => p.baseForm)));
 
-    setActivePrefix(prefixData);
-    setShowSuccess(true);
-    
-    setTimeout(() => {
-      setFoundPrefixes(prev => [...prev, prefixData.prefix]);
-      setShowSuccess(false);
-    }, 1500);
+  const handlePrefixSelect = (prefix: string) => {
+    if (showSuccess || showError) return;
+    setSelectedPrefix(prefix);
+    if (selectedBaseForm) {
+      checkCombination(prefix, selectedBaseForm);
+    }
   };
 
-  const handleCompletePrefixExercises = (prefix: string) => {
-    setCompletedPrefixExercises(prev => [...prev, prefix]);
-    setActiveExercisePrefix(null);
+  const handleBaseFormSelect = (form: string) => {
+    if (showSuccess || showError) return;
+    setSelectedBaseForm(form);
+    if (selectedPrefix) {
+      checkCombination(selectedPrefix, form);
+    }
+  };
+
+  const checkCombination = (prefix: string, baseForm: string) => {
+    const matchedWord = level.prefixes.find(
+      p => p.prefix === prefix && p.baseForm === baseForm
+    );
+    
+    if (matchedWord) {
+      setActiveWord(matchedWord);
+      if (!foundWords.includes(matchedWord.resultWord)) {
+        setShowSuccess(true);
+        setTimeout(() => {
+          setFoundWords(prev => [...prev, matchedWord.resultWord]);
+          setShowSuccess(false);
+          setSelectedPrefix(null);
+          setSelectedBaseForm(null);
+        }, 2000);
+      } else {
+        setTimeout(() => {
+          setSelectedPrefix(null);
+          setSelectedBaseForm(null);
+        }, 1000);
+      }
+    } else {
+      setShowError(true);
+      setTimeout(() => {
+        setShowError(false);
+        setSelectedPrefix(null);
+        setSelectedBaseForm(null);
+      }, 1000);
+    }
+  };
+
+  const handleCompletePrefixExercises = (resultWord: string) => {
+    setCompletedWordExercises(prev => [...prev, resultWord]);
+    setActiveExerciseWord(null);
   };
 
   const handleCompleteLevelExercises = () => {
@@ -47,13 +85,13 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
     setShowLevelExercises(false);
   };
 
-  const allPrefixesFound = foundPrefixes.length === level.prefixes.length;
-  const allPrefixExercisesDone = completedPrefixExercises.length === level.prefixes.length;
+  const allPrefixesFound = foundWords.length === level.prefixes.length;
+  const allPrefixExercisesDone = completedWordExercises.length === level.prefixes.length;
   const canStartLevelExercises = allPrefixesFound && allPrefixExercisesDone;
   const isComplete = levelExercisesCompleted;
 
   // Find the active exercise data
-  const activePrefixData = level.prefixes.find(p => p.prefix === activeExercisePrefix);
+  const activePrefixData = level.prefixes.find(p => p.resultWord === activeExerciseWord);
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-slate-900 font-sans flex flex-col">
@@ -68,7 +106,7 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
         </button>
         <div className="text-center">
           <h1 className="text-xl font-bold text-slate-800">Level {level.id}</h1>
-          <p className="text-sm text-slate-500 font-medium">{foundPrefixes.length} / {level.prefixes.length} words found</p>
+          <p className="text-sm text-slate-500 font-medium">{foundWords.length} / {level.prefixes.length} words found</p>
         </div>
         <div className="w-20"></div> {/* Spacer for centering */}
       </header>
@@ -79,42 +117,85 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
         <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden">
           
           <div className="text-center mb-8">
-            <h2 className="text-sm uppercase tracking-widest text-slate-400 font-bold mb-2">Base Verb</h2>
+            <h2 className="text-sm uppercase tracking-widest text-slate-400 font-bold mb-2">Base Concept</h2>
             <div className="text-5xl font-serif text-slate-800 mb-2">{level.baseVerb}</div>
             <div className="text-lg text-slate-500 italic">{level.baseMeaning}</div>
           </div>
 
           {/* Interaction Zone */}
-          <div className="flex flex-col items-center w-full max-w-2xl">
-            <div className="flex flex-wrap justify-center gap-3 mb-12">
-              {level.prefixes.map((p) => {
-                const isFound = foundPrefixes.includes(p.prefix);
-                const isActive = activePrefix?.prefix === p.prefix && !showSuccess;
-                return (
-                  <button
-                    key={p.prefix}
-                    onClick={() => handlePrefixClick(p)}
-                    disabled={showSuccess && !isFound}
-                    className={`
-                      px-6 py-3 rounded-2xl text-xl font-medium transition-all duration-300
-                      ${isFound 
-                        ? 'bg-emerald-100 text-emerald-800 border-2 border-emerald-200' 
-                        : isActive
-                          ? 'bg-indigo-600 text-white shadow-lg scale-105'
-                          : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-md'
-                      }
-                    `}
-                  >
-                    {p.prefix}-
-                  </button>
-                );
-              })}
+          <div className="flex flex-col items-center w-full max-w-2xl gap-6">
+            <div className="w-full">
+              <h3 className="text-sm uppercase tracking-widest text-slate-400 font-bold mb-3 text-center">1. Select Prefix</h3>
+              <div className="flex flex-wrap justify-center gap-3">
+                {uniquePrefixes.map((prefix) => {
+                  const isSelected = selectedPrefix === prefix;
+                  return (
+                    <button
+                      key={prefix}
+                      onClick={() => handlePrefixSelect(prefix)}
+                      disabled={showSuccess || showError}
+                      className={`
+                        px-6 py-3 rounded-2xl text-xl font-medium transition-all duration-300
+                        ${isSelected 
+                          ? 'bg-indigo-600 text-white shadow-md scale-105' 
+                          : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-md'}
+                      `}
+                    >
+                      {prefix}-
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex justify-center text-slate-300">
+              <Plus className="w-8 h-8" />
+            </div>
+
+            <div className="w-full mb-8">
+              <h3 className="text-sm uppercase tracking-widest text-slate-400 font-bold mb-3 text-center">2. Select Base Form</h3>
+              <div className="flex flex-wrap justify-center gap-3">
+                {uniqueBaseForms.map((form) => {
+                  const isSelected = selectedBaseForm === form;
+                  return (
+                    <button
+                      key={form}
+                      onClick={() => handleBaseFormSelect(form)}
+                      disabled={showSuccess || showError}
+                      className={`
+                        px-6 py-3 rounded-2xl text-xl font-medium transition-all duration-300
+                        ${isSelected 
+                          ? 'bg-indigo-600 text-white shadow-md scale-105' 
+                          : 'bg-white text-slate-700 border-2 border-slate-200 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-md'}
+                      `}
+                    >
+                      {form}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Result Display */}
             <div className="h-40 w-full flex items-center justify-center">
               <AnimatePresence mode="wait">
-                {showSuccess && activePrefix && !foundPrefixes.includes(activePrefix.prefix) && (
+                {showError && (
+                  <motion.div
+                    key="error"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: [-10, 10, -10, 10, 0] }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="flex flex-col items-center text-center"
+                  >
+                    <div className="flex items-center text-rose-500 mb-2">
+                      <XCircle className="w-6 h-6 mr-2" />
+                      <span className="font-bold uppercase tracking-wider text-sm">Invalid Combination</span>
+                    </div>
+                  </motion.div>
+                )}
+
+                {showSuccess && activeWord && !foundWords.includes(activeWord.resultWord) && (
                   <motion.div
                     key="success"
                     initial={{ opacity: 0, y: 20, scale: 0.9 }}
@@ -127,14 +208,14 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
                       <span className="font-bold uppercase tracking-wider text-sm">New Word Found!</span>
                     </div>
                     <div className="text-4xl font-serif text-slate-800 mb-2">
-                      <span className="text-emerald-600">{activePrefix.prefix}</span>
-                      {level.baseVerb}
+                      <span className="text-emerald-600">{activeWord.prefix}</span>
+                      {activeWord.baseForm}
                     </div>
-                    <div className="text-xl text-slate-600">{activePrefix.resultMeaning}</div>
+                    <div className="text-xl text-slate-600">{activeWord.resultMeaning}</div>
                   </motion.div>
                 )}
 
-                {activePrefix && (foundPrefixes.includes(activePrefix.prefix) || (!showSuccess && foundPrefixes.includes(activePrefix.prefix))) && (
+                {activeWord && (foundWords.includes(activeWord.resultWord) || (!showSuccess && foundWords.includes(activeWord.resultWord))) && !showError && (
                   <motion.div
                     key="info"
                     initial={{ opacity: 0 }}
@@ -142,24 +223,24 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
                     className="flex flex-col items-center text-center max-w-lg"
                   >
                     <div className="text-3xl font-serif text-slate-800 mb-1">
-                      <span className="text-indigo-600">{activePrefix.prefix}</span>
-                      {level.baseVerb}
+                      <span className="text-indigo-600">{activeWord.prefix}</span>
+                      {activeWord.baseForm}
                     </div>
-                    <div className="text-lg font-medium text-slate-600 mb-4">{activePrefix.resultMeaning}</div>
+                    <div className="text-lg font-medium text-slate-600 mb-4">{activeWord.resultMeaning}</div>
                     <div className="bg-slate-50 px-6 py-4 rounded-xl border border-slate-100 text-slate-700 italic">
-                      "{activePrefix.example}"
+                      "{activeWord.example}"
                     </div>
                   </motion.div>
                 )}
 
-                {!activePrefix && !showSuccess && (
+                {!activeWord && !showSuccess && !showError && (
                   <motion.div
                     key="prompt"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="text-slate-400 text-lg flex items-center"
                   >
-                    Select a prefix to combine with the verb
+                    Select a prefix and a base form to combine
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -168,12 +249,12 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
         </div>
 
         {/* Active Exercise Block */}
-        {activeExercisePrefix && activePrefixData && activePrefixData.exercises && (
+        {activeExerciseWord && activePrefixData && activePrefixData.exercises && (
           <div ref={(el) => el?.scrollIntoView({ behavior: 'smooth' })}>
             <ExerciseBlock 
               exercises={activePrefixData.exercises} 
-              onComplete={() => handleCompletePrefixExercises(activePrefixData.prefix)}
-              title={`Practice: ${activePrefixData.prefix}${level.baseVerb}`}
+              onComplete={() => handleCompletePrefixExercises(activePrefixData.resultWord)}
+              title={`Practice: ${activePrefixData.resultWord}`}
             />
           </div>
         )}
@@ -190,24 +271,24 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
         )}
 
         {/* Found Words List */}
-        {foundPrefixes.length > 0 && !showLevelExercises && !isComplete && (
+        {foundWords.length > 0 && !showLevelExercises && !isComplete && (
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
               <BookOpen className="w-6 h-6 mr-2 text-indigo-500" />
-              Dictionary ({foundPrefixes.length})
+              Dictionary ({foundWords.length})
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {level.prefixes
-                .filter(p => foundPrefixes.includes(p.prefix))
+                .filter(p => foundWords.includes(p.resultWord))
                 .map(p => {
-                  const exercisesDone = completedPrefixExercises.includes(p.prefix);
+                  const exercisesDone = completedWordExercises.includes(p.resultWord);
                   const hasExercises = p.exercises && p.exercises.length > 0;
                   
                   return (
-                    <div key={p.prefix} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col">
+                    <div key={p.resultWord} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col">
                       <div className="flex items-baseline justify-between mb-2">
                         <div className="text-lg font-bold text-slate-800">
-                          <span className="text-indigo-600">{p.prefix}</span>{level.baseVerb}
+                          <span className="text-indigo-600">{p.prefix}</span>{p.baseForm}
                         </div>
                         <div className="text-sm font-medium text-slate-500 bg-white px-2 py-1 rounded-md shadow-sm">
                           {p.meaning}
@@ -226,7 +307,7 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
                           </span>
                           {!exercisesDone && (
                             <button
-                              onClick={() => setActiveExercisePrefix(p.prefix)}
+                              onClick={() => setActiveExerciseWord(p.resultWord)}
                               className="text-sm bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-200 transition-colors"
                             >
                               Practice
