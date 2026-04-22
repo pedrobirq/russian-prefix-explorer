@@ -22,11 +22,16 @@ export async function seedDatabase() {
       id SERIAL PRIMARY KEY,
       level_id INTEGER REFERENCES levels(id) ON DELETE CASCADE,
       prefix VARCHAR(50) NOT NULL,
-      meaning VARCHAR(255) NOT NULL,
       result_word VARCHAR(255) NOT NULL,
       result_meaning VARCHAR(255) NOT NULL,
       example TEXT NOT NULL
     );
+  `);
+
+  // Drop meaning column if it exists
+  await db.query(`
+    ALTER TABLE prefixes 
+    DROP COLUMN IF EXISTS meaning;
   `);
 
   // Add base_form column if it doesn't exist (for existing DBs)
@@ -67,9 +72,9 @@ export async function seedDatabase() {
       for (const prefix of level.prefixes) {
         await db.query(
           `INSERT INTO prefixes 
-          (level_id, prefix, base_form, meaning, result_word, result_meaning, example) 
-          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [levelId, prefix.prefix, prefix.baseForm, prefix.meaning, prefix.resultWord, prefix.resultMeaning, prefix.example]
+          (level_id, prefix, base_form, result_word, result_meaning, example) 
+          VALUES ($1, $2, $3, $4, $5, $6)`,
+          [levelId, prefix.prefix, prefix.baseForm, prefix.resultWord, prefix.resultMeaning, prefix.example]
         );
       }
     }
@@ -123,6 +128,27 @@ export async function seedDatabase() {
     }
     console.log('Exercises seeded successfully.');
   }
+
+  // Create Users and Progress tables
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(255) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL
+    );
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS user_progress (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      level_id INTEGER REFERENCES levels(id) ON DELETE CASCADE,
+      found_words JSONB DEFAULT '[]'::jsonb,
+      completed_word_exercises JSONB DEFAULT '[]'::jsonb,
+      level_completed BOOLEAN DEFAULT false,
+      UNIQUE(user_id, level_id)
+    );
+  `);
 
   isSeeded = true;
 }

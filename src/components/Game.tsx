@@ -9,21 +9,79 @@ interface GameProps {
   onBack: () => void;
   onNextLevel: () => void;
   isLastLevel: boolean;
+  token: string;
 }
 
-export default function Game({ level, onBack, onNextLevel, isLastLevel }: GameProps) {
+export default function Game({ level, onBack, onNextLevel, isLastLevel, token }: GameProps) {
   const [foundWords, setFoundWords] = useState<string[]>([]);
   const [activeWord, setActiveWord] = useState<PrefixData | null>(null);
   const [selectedPrefix, setSelectedPrefix] = useState<string | null>(null);
   const [selectedBaseForm, setSelectedBaseForm] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
+  const [isLoadingProgress, setIsLoadingProgress] = useState(true);
   
   // Exercise state
   const [completedWordExercises, setCompletedWordExercises] = useState<string[]>([]);
   const [activeExerciseWord, setActiveExerciseWord] = useState<string | null>(null);
   const [showLevelExercises, setShowLevelExercises] = useState(false);
   const [levelExercisesCompleted, setLevelExercisesCompleted] = useState(false);
+
+  useEffect(() => {
+    const fetchProgress = async () => {
+      setIsLoadingProgress(true);
+      try {
+        const res = await fetch('/api/progress', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const levelProgress = data.find((p: any) => p.level_id === level.id);
+          if (levelProgress) {
+            setFoundWords(levelProgress.found_words || []);
+            setCompletedWordExercises(levelProgress.completed_word_exercises || []);
+            setLevelExercisesCompleted(levelProgress.level_completed || false);
+          } else {
+            // Reset if no progress for this level
+            setFoundWords([]);
+            setCompletedWordExercises([]);
+            setLevelExercisesCompleted(false);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load progress', e);
+      } finally {
+        setIsLoadingProgress(false);
+      }
+    };
+    fetchProgress();
+  }, [level.id, token]);
+
+  const saveProgress = async (newFoundWords: string[], newCompletedExercises: string[], newLevelCompleted: boolean) => {
+    if (isLoadingProgress) return;
+    try {
+      await fetch(`/api/progress/${level.id}`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          foundWords: newFoundWords,
+          completedWordExercises: newCompletedExercises,
+          levelCompleted: newLevelCompleted
+        })
+      });
+    } catch (e) {
+      console.error('Failed to save progress', e);
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoadingProgress) {
+      saveProgress(foundWords, completedWordExercises, levelExercisesCompleted);
+    }
+  }, [foundWords, completedWordExercises, levelExercisesCompleted, isLoadingProgress]);
 
   const uniquePrefixes = Array.from(new Set(level.prefixes.map(p => p.prefix)));
   const uniqueBaseForms = Array.from(new Set(level.prefixes.map(p => p.baseForm)));
@@ -290,9 +348,7 @@ export default function Game({ level, onBack, onNextLevel, isLastLevel }: GamePr
                         <div className="text-lg font-bold text-slate-800">
                           <span className="text-indigo-600">{p.prefix}</span>{p.baseForm}
                         </div>
-                        <div className="text-sm font-medium text-slate-500 bg-white px-2 py-1 rounded-md shadow-sm">
-                          {p.meaning}
-                        </div>
+                        
                       </div>
                       <div className="text-slate-600 mb-4">{p.resultMeaning}</div>
                       
