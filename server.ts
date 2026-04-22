@@ -136,9 +136,9 @@ async function startServer() {
 
             return {
               id: p.id,
-              prefix: p.prefix,
-              baseForm: p.base_form || level.base_verb,
-              resultWord: p.result_word,
+              prefix: p.prefix?.trim(),
+              baseForm: (p.base_form || level.base_verb).trim(),
+              resultWord: p.result_word?.trim(),
               resultMeaning: p.result_meaning,
               example: p.example,
               exercises: prefixExercises
