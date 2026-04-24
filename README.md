@@ -1,20 +1,14 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Russian Prefix Explorer
 
-# Run and deploy your AI Studio app
+## Описание проекта
 
-This contains everything you need to run your app locally.
+Данный репозиторий представляет собой платформу для интерактивного изучения приставочного словообразования глаголов русского языка, разработанную на основе учебно-методологического пособия Л. М. Карамышевой и М. Г. Мирошниковой. 
 
-View your app in AI Studio: https://ai.studio/apps/cff36e96-b308-4be3-b985-94723da167bb
+Целевая аудотория: студенты, изучающие русский язык как иностранный.
 
-## Run Locally
+Перейти на сайт можно по ссылке -> https://russian-prefix-explorer.onrender.com/ (используется бесплатная версия деплоя сайта, время отклика увеличено)
 
-**Prerequisites:**  Node.js
+## Стадия разработки
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- Первый уровень наполнен приставочными дериватами глагола *думать*
+- Для 3/16 глоголов первого уровня есть тесты на закрепление словоупотребления.
